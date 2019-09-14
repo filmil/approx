@@ -2,6 +2,7 @@ package approx
 
 import (
 	"fmt"
+	"math"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -134,7 +135,6 @@ func must(v Float64, err error) Float64 {
 func TestOps(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
-		name     string
 		op1, op2 Float64
 		sum      Float64
 		sub      Float64
@@ -176,6 +176,97 @@ func TestOps(t *testing.T) {
 			quotient := Div(test.op1, test.op2)
 			if !cmp.Equal(quotient, test.quotient, opts...) {
 				t.Errorf("quotient: expected: %v, actual: %v", test.quotient, quotient)
+			}
+		})
+	}
+}
+
+func TestRelOps(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name               string
+		op1, op2           Float64
+		lt, le, gt, ge, ov bool
+		rd                 float64
+	}{
+		{
+			op1: New(0, 1),
+			op2: New(3, 1),
+
+			lt: true,
+			le: true,
+			gt: false,
+			ge: false,
+			ov: false,
+			rd: math.Inf(1),
+		},
+		{
+			op1: New(1, 1),
+			op2: New(2, 1),
+
+			lt: false,
+			le: false,
+			gt: false,
+			ge: false,
+			ov: true,
+			rd: 1,
+		},
+	}
+	for _, test := range tests {
+		test := test
+		t.Run(fmt.Sprintf(fmt.Sprintf("(%v;%v)", test.op1, test.op2)), func(t *testing.T) {
+			lt := test.op1.Lt(test.op2)
+			le := test.op1.Le(test.op2)
+			gt := test.op1.Gt(test.op2)
+			ge := test.op1.Ge(test.op2)
+			ov := Overlap(test.op1, test.op2)
+			rd := test.op1.RelDelta()
+			if lt != test.lt || le != test.le || gt != test.gt ||
+				ge != test.ge || ov != test.ov || rd != test.rd {
+				t.Errorf(
+					"was : (lt=%v,le=%v,gt=%v,ge=%v,ov=%v,rd=%v)\nwant: (lt=%v,le=%v,gt=%v,ge=%v,ov=%v,rd=%v)",
+					lt, le, gt, ge, ov, rd,
+					test.lt, test.le, test.gt, test.ge, test.ov, test.rd)
+			}
+		})
+	}
+}
+
+func TestApply(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name     string
+		input    Float64
+		f        func(float64) float64
+		expected Float64
+	}{
+		{
+			name:     "log",
+			input:    New(1, 0.1),
+			f:        math.Log,
+			expected: New(0, 0.1),
+		},
+		{
+			name:     "exp",
+			input:    New(1, 0.1),
+			f:        math.Exp,
+			expected: must(Parse("2.718281828459045±0.27182818284590454")),
+		},
+		{
+			name:  "x^2",
+			input: New(10, 0.1),
+			f: func(x float64) float64 {
+				return x * x
+			},
+			expected: must(Parse("100±1.9999999999988916")),
+		},
+	}
+	for _, test := range tests {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			actual := test.input.Apply(test.f, 1e-3)
+			if !cmp.Equal(actual, test.expected, opts...) {
+				t.Errorf("was : %v\nwant: %v", actual, test.expected)
 			}
 		})
 	}

@@ -17,8 +17,34 @@ type Float64 struct {
 	val, delta float64
 }
 
+// String implements Stringer.
 func (f Float64) String() string {
 	return fmt.Sprintf("%v±%v", f.val, f.delta)
+}
+
+// Value returns the value at the center of f's interval.
+func (f Float64) Value() float64 {
+	return f.val
+}
+
+// Delta returns the delta around the interval.  delta is nonnegative.
+func (f Float64) Delta() float64 {
+	return f.delta
+}
+
+// Min returns the minimal extreme value for f.
+func (f Float64) Min() float64 {
+	return f.val - f.delta
+}
+
+// Max returns the maximal extreme value for f.
+func (f Float64) Max() float64 {
+	return f.val + f.delta
+}
+
+// RelDelta returns the relative error of f.
+func (f Float64) RelDelta() float64 {
+	return math.Abs(f.delta / f.val)
 }
 
 // Parse parses an uncertain number from a string.
@@ -110,7 +136,80 @@ func Div(a, b Float64) Float64 {
 	return New(val, delta)
 }
 
-// LessThan returns true if f is definitely smaller than t.
-func (f Float64) LessThan(t Float64) bool {
+// Lt returns true if f is definitely less than t.
+func (f Float64) Lt(t Float64) bool {
 	return f.val+f.delta < t.val-t.delta
+}
+
+// Le returns true if f is definitely either less than, or equal to t.
+func (f Float64) Le(t Float64) bool {
+	return f.val+f.delta <= t.val-t.delta
+}
+
+// Gt returns true if f is definitely greater than t.
+func (f Float64) Gt(t Float64) bool {
+	return t.Le(f)
+}
+
+// Ge returns true if f is definitely either greather than, or equal to t.
+func (f Float64) Ge(t Float64) bool {
+	return t.Lt(f)
+}
+
+// Overlap returns true if t and f may overlap.
+func Overlap(f, t Float64) bool {
+	return !f.Le(t) && !t.Le(f)
+}
+
+// eqFunc is a dirty trick which compares function based on their address in
+// memory.
+func eqFunc(f1, f2 func(float64) float64) bool {
+	return fmt.Sprintf("%p", f1) == fmt.Sprintf("%p", f2)
+}
+
+// applyLog computes approximate value for a natural logarithm.
+//
+// Based on first-order Taylor expansion around x:
+//   ln(x+dx) = ln(x) + 1/x * dx
+func (f Float64) applyLog() Float64 {
+	delta := f.delta / f.val
+	val := math.Log(f.val)
+	return New(val, delta)
+}
+
+// applyExp computes approximate value for e^x.
+//
+// Based on first-order Taylor expansion around x:
+//   e^(x+dx) = e^x + e^x*dx
+func (f Float64) applyExp() Float64 {
+	val := math.Exp(f.val)
+	delta := val * f.delta
+	return New(val, delta)
+}
+
+// Apply applies the function fx to f.
+//
+// Based on first order Taylor expansion of fx around f:
+// f := x + dx
+// fx(f) = x + fx'(f) * dx.
+//
+// For well known functions, the computation is exact.  For user-defined
+// functions, the computation is via computing numeric derivative around the
+// centerpoint of f, for which 'eps' is the interval to compute numeric
+// derivative on.
+func (f Float64) Apply(fx func(float64) float64, eps float64) Float64 {
+	// Special-case some interesting functions.
+	if eqFunc(fx, math.Log) {
+		return f.applyLog()
+	}
+	if eqFunc(fx, math.Exp) {
+		return f.applyExp()
+	}
+
+	// Central difference numeric derivative computation.
+	fmin := fx(f.val - eps)
+	fmax := fx(f.val + eps)
+	d := 2 * eps
+	dfx := (fmax - fmin) / d
+	return New(fx(f.val), math.Abs(dfx*f.delta))
 }
