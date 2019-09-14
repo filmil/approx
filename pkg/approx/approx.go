@@ -1,4 +1,65 @@
 // Package approx contains code for computing with approximate numbers.
+//
+// An approximate number is a value (float64) plus, or minus some uncertainty.
+// Approximate numbers are what you normally get as result of any real-world
+// measurement.  This package allows you to use approximate numbers and use
+// "regular" mathematical operations to compute with them.
+//
+// Why is this useful?
+//
+// Approximate numbers come out of any sort of physical measurement.  No real
+// life measurement ever yields a single number.  Though we sometimes choose to
+// ignore measurement error, that error is always present.  The question
+// becomes, suppose we do *not* want to disregard the error, what happens then?
+// For example, measuring one side of a kitchen table with a tape measure would
+// yield the result:
+//
+//     width = (50±0.5)cm
+//
+// The 0.5cm error comes from the fact that a tape measure has the smallest
+// division of 1 centimeter.  Since the divisions are large enough that we can
+// estimate if we are off more than one half of the division, we can say that
+// we are confident in not making more than 0.5cm of a measurement error.
+//
+// Suppose now that we measure the length of the table too:
+//
+//     length = (100±0.5)cm
+//
+// Since we are measuring with the same tape measure, the outcome in terms of
+// error is similar: we're making another error of about 0.5cm.
+//
+// Now, what is the perimeter of the table?  It is:
+//
+//     perimeter = 2 * (width + length)
+//
+// But, since the original width and length that we computed are approximate
+// numbers, we will also have some error in the computation of the perimeter.
+//
+// Since we could have overshot our measurement for all values at one extreme,
+// or undershot at another, our perimeter falls in the interval:
+//
+//     perimeter = (300±2)cm
+//
+// Note here that individual measurement errors added up.  Now, if we wanted to
+// compute the difference between length and width, we'd get:
+//
+//     length - width = (50±1)cm
+//
+// What happened here?  We see that even though the data points were
+// subtracted, the errors were *added* together.  This is because again the
+// errors could have conspired to make our measurement less accurate, and we
+// have to account for that.
+//
+// This library has a few functions that make working with approximate numbers
+// easy.  You can load up some approximate numbers like so:
+//
+//     import "github.com/filmil/approx"
+//     width, _ := approx.Parse("50±0.5")
+//     length, _ := approx.Parse("50±0.5")
+//     perimeter := approx.Add(
+//         approx.Add(width, length),
+//         approx.Add(width, length),
+//     )
 package approx
 
 import (
@@ -18,6 +79,10 @@ type Float64 struct {
 }
 
 // String implements Stringer.
+//
+// This implementation prints the most basic version of the number.  If you want
+// more specific formatting, use Value() and Delta() to extract the components
+// from the number, and format them at will.
 func (f Float64) String() string {
 	return fmt.Sprintf("%v±%v", f.val, f.delta)
 }
@@ -124,6 +189,11 @@ func Mul(a, b Float64) Float64 {
 	val := a.val * b.val
 	delta := math.Abs(val * rel)
 	return New(val, delta)
+}
+
+// Mul computes a scalar product of f with a number c.
+func (f Float64) Mul(c float64) Float64 {
+	return New(c*f.val, math.Abs(c*f.delta))
 }
 
 // Div computes a quotient of a and b. Zeroes cause infinities, as expected.
