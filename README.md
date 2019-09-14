@@ -60,10 +60,13 @@ have to account for that.
 This library has a few functions that make working with approximate numbers
 easy.  You can load up some approximate numbers like so:
 
-    import "github.com/filmil/approx"
+    import "github.com/filmil/approx/pkg/approx"
+	// ...
     width, _ := approx.Parse("50±0.5")
     length, _ := approx.Parse("50±0.5")
     perimeter := approx.Add(
         approx.Add(width, length),
         approx.Add(width, length),
     )
+
+You can also try this out at the go playground: https://play.golang.org/p/ZqruHTSxzij
