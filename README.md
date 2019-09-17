@@ -1,4 +1,4 @@
-# approx: calculations with approximate numbes, implemented in go
+# approx: calculations with approximate numbers, implemented in go
 
 [![Go Report Card](https://goreportcard.com/badge/github.com/filmil/approx)](https://goreportcard.com/report/github.com/filmil/approx)
 [![Build Status](https://travis-ci.com/filmil/approx.svg?branch=master)](https://travis-ci.com/filmil/approx)
